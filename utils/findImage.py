@@ -82,6 +82,33 @@ def drawImages(dirpath, number, v=False):
 
 	return (images_kept, number)
 
+"""
+selectImages
+----------
+select images from a directory
+
+dirpath (string): directory path
+v (optional - boolean): verbose mode
+
+return (tuple): (list of string) list of images, (integer) number of images
+"""
+def selectImages(dirpath, v=False):
+
+	if not isinstance(dirpath, str):
+		print(' [!] dirpath must be a string')
+		raise TypeError
+
+	if v == True:
+		print(" [x] Selecting images of {}".format(dirpath))
+
+	images = [os.path.join(dirpath, im) for im in os.listdir(dirpath)\
+	if fileAndImage(os.path.join(dirpath, im))]
+
+	if v == True:
+		print("    [o] {} images found".format(len(images)))
+
+	return (images, len(images))
+
 
 """
 generateImagesList
