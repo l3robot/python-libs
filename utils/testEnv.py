@@ -1,7 +1,12 @@
+from __future__ import print_function
+
 import os
 import time
 
-from shutil import copy, move, copytree, rmtree
+from shutil import move, copytree, rmtree
+from shutil import copy as scopy
+
+import copy
 
 from clint.textui import progress
 
@@ -57,14 +62,14 @@ class TestEnv:
 			with progress.Bar(label="    [o] Copying ...", expected_size=len(self.imagesList)) as bar:
 				val = 0
 				for image in self.imagesList:
-					copy(image, self.imagesPath)
+					scopy(image, self.imagesPath)
 					bar.show(val)
 					val += 1
 		else:
 			for image in imagesList:
-				copy(image, images_dir)
+				scopy(image, images_dir)
 
-		self.originImagesList = self.imagesList.copy()
+		self.originImagesList = copy.copy(self.imagesList)
 		self.imagesList, n = selectImages(self.imagesPath)
 
 	def copyAllImages(self, origin, v=False):
@@ -84,14 +89,14 @@ class TestEnv:
 			with progress.Bar(label="    [o] Copying ...", expected_size=len(self.imagesList)) as bar:
 				val = 0
 				for image in self.imagesList:
-					copy(image, self.imagesPath)
+					scopy(image, self.imagesPath)
 					bar.show(val)
 					val += 1
 		else:
 			for image in imagesList:
-				copy(image, images_dir)
+				scopy(image, images_dir)
 
-		self.originImagesList = self.imagesList.copy()
+		self.originImagesList = copy.copy(self.imagesList)
 		self.imagesList, n = selectImages(self.imagesPath)
 
 	def removeImages(self, v=False):

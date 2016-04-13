@@ -1,5 +1,9 @@
+from __future__ import print_function
+
 import cv2
 import numpy as np
+
+import copy
 
 from clint.textui import progress
 
@@ -29,6 +33,7 @@ def siftExtraction(imagesList, v=False):
 	sift = cv2.xfeatures2d.SIFT_create()
 
 	xdes = []
+	xkpt = []
 
 	if v == True:
 		with progress.Bar(label=" [x] Sift extraction ...", expected_size=len(imagesList)) as bar:
@@ -36,18 +41,20 @@ def siftExtraction(imagesList, v=False):
 			for i in imagesList:
 				img = cv2.imread(i)
 				gray= cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-				_, des = sift.detectAndCompute(gray,None)
+				kpt, des = sift.detectAndCompute(gray,None)
 				xdes.append(des)
+				xkpt.append([k.pt for k in kpt])
 				bar.show(val)
 				val += 1
 	else:
 		for i in imagesList:
 			img = cv2.imread(i)
 			gray= cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
-			_, des = sift.detectAndCompute(gray,None)
+			kpt, des = sift.detectAndCompute(gray,None)
 			xdes.append(des)
+			xkpt.append([k.pt for k in kpt])
 
-	return np.array(xdes)
+	return np.array(xdes), np.array(xkpt)
 
 
 """
@@ -87,7 +94,7 @@ def shiTomasiExtraction(imagesList, v=False):
 					
 				xdes.append(p0[st==1])
 
-				old_gray = new_gray.copy()
+				old_gray = copy.copy(new_gray)
 				p0 = p1[st==1].reshape(-1,1,2)
 
 				bar.show(val)
@@ -106,7 +113,7 @@ def shiTomasiExtraction(imagesList, v=False):
 				
 			xdes.append(p0[st==1])
 
-			old_gray = new_gray.copy()
+			old_gray = copy.copy(new_gray)
 			p0 = p1[st==1].reshape(-1,1,2)
 
 			bar.show(val)
@@ -118,9 +125,66 @@ def shiTomasiExtraction(imagesList, v=False):
 
 
 """
-matchSiftKeypoints
+matchSift
 ----------
 Match sift keypoints from a list of descriptors
 """
-def matchSiftKeypoints(des, v=False):
-	pass
+def matchSift(matcher, des1, des2, v=False):
+	matches = matcher.knnMatch(des1,des2,k=2)
+
+	good = []
+	for m,n in matches:
+		if m.distance < 0.7*n.distance:
+			good.append(m)
+
+	if v == True:
+		print('    [o] Found {} matches'.format(len(good)))
+
+	return good
+
+
+"""
+matchSiftDescriptors
+----------
+Match sift descriptors from a list of descriptors
+"""
+def matchSiftDescriptors(des, algo, v=False):
+
+	if algo not in ['flann', 'brute']:
+		print(' [!] {} is not a good matcher algo'.format(algo))
+		raise ValueError
+
+	if algo == 'flann':
+		FLANN_INDEX_KDTREE = 0
+		index_params = dict(algorithm = FLANN_INDEX_KDTREE, trees = 5)
+		search_params = dict(checks = 50)
+
+		mymatcher = cv2.FlannBasedMatcher(index_params, search_params)
+	elif algo == 'brute':
+		mymatcher = cv2.BFMatcher() 
+
+	n = len(des)
+
+	xmatches = np.zeros((n, n), dtype=np.ndarray)
+
+	totaln = n*(n+1)/2
+
+	if v == True:
+		with progress.Bar(label=" [x] Matching sift descriptors ...", expected_size=totaln) as bar:
+			val = 0
+			for i in range(n):
+				for j in range(i,n):
+					matches = matchSift(mymatcher, des[i], des[j])
+					xmatches[i,j] = matches
+					xmatches[j,i] = matches
+					val += 1
+					bar.show(val)
+	else:
+		for i in range(n):
+			for j in range(i,n):
+				matches = matchSift(mymatcher, des[i], des[j])
+				xmatches[i,j] = matches
+				xmatches[j,i] = matches
+
+	return xmatches
+
