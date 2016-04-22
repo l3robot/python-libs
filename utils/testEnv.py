@@ -90,8 +90,8 @@ class TestEnv:
 				val = 0
 				for image in self.imagesList:
 					scopy(image, self.imagesPath)
-					bar.show(val)
 					val += 1
+					bar.show(val)
 		else:
 			for image in imagesList:
 				scopy(image, images_dir)
@@ -112,8 +112,8 @@ class TestEnv:
 				val = 0
 				for image in self.imagesList:
 					os.remove(image)
-					bar.show(val)
 					val += 1
+					bar.show(val)
 		else:
 			for image in self.imagesList:
 				os.remove(image)

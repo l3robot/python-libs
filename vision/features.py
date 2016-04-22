@@ -44,8 +44,8 @@ def siftExtraction(imagesList, v=False):
 				kpt, des = sift.detectAndCompute(gray,None)
 				xdes.append(des)
 				xkpt.append([k.pt for k in kpt])
-				bar.show(val)
 				val += 1
+				bar.show(val)
 	else:
 		for i in imagesList:
 			img = cv2.imread(i)
@@ -135,7 +135,7 @@ def matchSift(matcher, des1, des2, v=False):
 	good = []
 	for m,n in matches:
 		if m.distance < 0.7*n.distance:
-			good.append(m)
+			good.append(np.array([m.queryIdx, m.trainIdx]))
 
 	if v == True:
 		print('    [o] Found {} matches'.format(len(good)))
@@ -176,7 +176,7 @@ def matchSiftDescriptors(des, algo, v=False):
 				for j in range(i,n):
 					matches = matchSift(mymatcher, des[i], des[j])
 					xmatches[i,j] = matches
-					xmatches[j,i] = matches
+					xmatches[j,i] = np.array([m[::-1] for m in matches])
 					val += 1
 					bar.show(val)
 	else:
@@ -184,7 +184,60 @@ def matchSiftDescriptors(des, algo, v=False):
 			for j in range(i,n):
 				matches = matchSift(mymatcher, des[i], des[j])
 				xmatches[i,j] = matches
-				xmatches[j,i] = matches
+				xmatches[j,i] = np.array([m[::-1] for m in matches])
 
 	return xmatches
+
+
+def homographyFilter(kp1, kp2, match, v=False):
+
+	if len(match) > 10:
+		query_pts = np.float32([kp1[m[0]] for m in match]).reshape(-1,1,2)
+		train_pts = np.float32([kp2[m[1]] for m in match]).reshape(-1,1,2)
+
+		M, mask = cv2.findHomography(query_pts, train_pts, cv2.RANSAC, 5.0)
+
+		if M is None:
+			if v == True:
+				print('    [o] Failed to find homography')
+			return []
+
+		matchesMask = mask.ravel().tolist()
+
+		if v == True:
+			m_len = len(match)
+			n_len = np.sum(matchesMask)
+			perc = n_len/m_len*100.0
+			print('    [o] {} of {} matches kept ({:.2f}%)'.format(n_len, m_len, perc))		
+
+		nmatch = [m for i, m in enumerate(match) if matchesMask[i] == 1]
+
+		return nmatch
+
+	else:
+		if v == True:
+			print('    [o] Not enough matches')
+		return []
+	
+
+def homographyFilterPairs(kps, matches, v=False):
+
+	n,m = matches.shape
+
+	if v == True:
+		with progress.Bar(label=" [x] Filtering matches ...", expected_size=n*m) as bar:
+			val = 0
+			for i in range(n):
+				for j in range(m):
+					nmatch = homographyFilter(kps[i], kps[j], matches[i,j])
+					matches[i,j] = nmatch
+					val += 1
+					bar.show(val)
+	else:
+		for i in range(n):
+			for j in range(m):
+				nmatch = homographyFilter(kps[i], kps[j], matches[i,j])
+				matches[i,j] = nmatch
+
+	 
 
