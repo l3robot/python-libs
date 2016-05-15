@@ -304,7 +304,7 @@ def homographyFilterPairs(kps, matches, v=False):
 
 def generate_pairs(imagesList, out):
 
-	# sift = cv2.xfeatures2d.SIFT_create()
+	sift = cv2.xfeatures2d.SIFT_create()
     fast = cv2.FastFeatureDetector()
 
 	xdes = []
@@ -317,7 +317,7 @@ def generate_pairs(imagesList, out):
 
 			# kpt, des = sift.detectAndCompute(gray,None)
             kpt = fast.detect(img, None)
-            des = fast.compute(img, kpt)
+            des = sift.compute(img, kpt)
 
 			xdes.append(des)
 			xkpt.append(kpt)
