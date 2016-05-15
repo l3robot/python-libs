@@ -3,6 +3,8 @@ from __future__ import print_function
 import cv2
 import numpy as np
 
+import os
+
 import copy
 
 from clint.textui import progress
@@ -143,6 +145,22 @@ def matchSift(matcher, des1, des2, v=False):
 	return good
 
 
+def matchSift2(matcher, des1, des2, v=False):
+	matches = matcher.knnMatch(des1,des2,k=2)
+
+	agood = []
+	good = []
+	for m,n in matches:
+		if m.distance < 0.7*n.distance:
+			agood.append(np.array([m.queryIdx, m.trainIdx]))
+			good.append(m)
+
+	if v == True:
+		print('    [o] Found {} matches'.format(len(good)))
+
+	return agood, good
+
+
 """
 matchSiftDescriptors
 ----------
@@ -218,6 +236,37 @@ def homographyFilter(kp1, kp2, match, v=False):
 		if v == True:
 			print('    [o] Not enough matches')
 		return []
+
+def homographyFilter2(kp1, kp2, match, v=False):
+
+	xkp1 = [k.pt for k in kp1]
+	xkp2 = [k.pt for k in kp2]
+
+	if len(match) > 10:
+		query_pts = np.float32([xkp1[m[0]] for m in match]).reshape(-1,1,2)
+		train_pts = np.float32([xkp2[m[1]] for m in match]).reshape(-1,1,2)
+
+		M, mask = cv2.findHomography(query_pts, train_pts, cv2.RANSAC, 5.0)
+
+		if M is None:
+			if v == True:
+				print('    [o] Failed to find homography')
+			return []
+
+		matchesMask = mask.ravel().tolist()
+
+		if v == True:
+			m_len = len(match)
+			n_len = np.sum(matchesMask)
+			perc = n_len/m_len*100.0
+			print('    [o] {} of {} matches kept ({:.2f}%)'.format(n_len, m_len, perc))		
+
+		return matchesMask
+
+	else:
+		if v == True:
+			print('    [o] Not enough matches')
+		return []
 	
 
 def homographyFilterPairs(kps, matches, v=False):
@@ -241,3 +290,43 @@ def homographyFilterPairs(kps, matches, v=False):
 
 	 
 
+def generate_pairs(imagesList, out):
+
+	sift = cv2.xfeatures2d.SIFT_create()
+
+	xdes = []
+	xkpt = []
+
+	with progress.Bar(label=" [x] Sift extraction ...", expected_size=len(imagesList)) as bar:
+		val = 0
+		for i in imagesList:
+			img = cv2.imread(i)
+			gray= cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+			kpt, des = sift.detectAndCompute(gray,None)
+			xdes.append(des)
+			xkpt.append(kpt)
+			val += 1
+			bar.show(val)
+
+	mymatcher = cv2.BFMatcher()
+
+	n = len(des)
+
+	totaln = n*(n+1)/2
+
+	with progress.Bar(label=" [x] Matching sift descriptors ...", expected_size=totaln) as bar:
+		val = 0
+		for i in range(n):
+			for j in range(i,n):
+				img1 = cv2.imread(imagesList[i])
+				img2 = cv2.imread(imagesList[j])
+				kp1 = xkpt[i]
+				kp2 = xkpt[j]
+				agood, good = matchSift2(mymatcher, xdes[i], xdes[j])
+				matchesMask = homographyFilter2(kp1, kp2, agood, v=False)
+				if len(matchesMask) > 0: 
+					draw_params = dict(matchColor = (0,255,0), singlePointColor = None, matchesMask = matchesMask, flags = 2)
+					img3 = cv2.drawMatches(img1,kp1,img2,kp2,good,None,**draw_params)
+					cv2.imwrite(os.path.join(out, '{}-{}.jpg'.format(i,j)),img3)
+				val += 1
+				bar.show(val)

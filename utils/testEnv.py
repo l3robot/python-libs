@@ -6,6 +6,9 @@ import time
 from shutil import move, copytree, rmtree
 from shutil import copy as scopy
 
+from wand.image import Image
+import cv2
+
 import copy
 
 from clint.textui import progress
@@ -99,6 +102,44 @@ class TestEnv:
 		self.originImagesList = copy.copy(self.imagesList)
 		self.imagesList, n = selectImages(self.imagesPath)
 
+	def copyAllResizedImages(self, origin, y, v=False):
+			if self.closed == True:
+				print(' [!] This environment is close')
+				return
+
+			self.imagesPath = os.path.join(self.name, 'images')
+			os.makedirs(self.imagesPath)
+
+			self.pairsPath = os.path.join(self.name, 'pairs')
+			os.makedirs(self.pairsPath)
+
+			self.imagesList, n = selectImages(origin, v=v)
+
+			if v == True:
+				print(" [x] Copying {} images from {}".format(n, origin))
+
+			if v == True:
+				with progress.Bar(label="    [o] Copying ...", expected_size=len(self.imagesList)) as bar:
+					val = 0
+					for image in self.imagesList:
+						img = cv2.imread(image,0)
+						res = cv2.resize(img,(614, 1024), interpolation = cv2.INTER_CUBIC)
+						equ = cv2.equalizeHist(res)
+						cv2.imwrite(os.path.join(self.imagesPath, os.path.basename(image)),equ)
+						val += 1
+						bar.show(val)
+			else:
+				for image in imagesList:
+					img = cv2.imread(image,0)
+					res = cv2.resize(img,(614, 1024), interpolation = cv2.INTER_CUBIC)
+					equ = cv2.equalizeHist(res)
+					cv2.imwrite(os.path.join(self.imagesPath, os.path.basename(image)),equ)
+
+
+			self.originImagesList = copy.copy(self.imagesList)
+			self.imagesList, n = selectImages(self.imagesPath)
+
+
 	def removeImages(self, v=False):
 		if self.closed == True:
 			print(' [!] This environment is close')
@@ -127,6 +168,10 @@ class TestEnv:
 			print(" [x] Keeping a copy of the environment here")
 
 		copytree(self.name, os.path.basename(self.name))
+
+	def writeForBA(numCam, focal, features):
+
+		pass
 
 	def close(self, v=False):
 		if self.closed == True:
